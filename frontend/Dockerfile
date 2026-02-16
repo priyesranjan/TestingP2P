@@ -17,7 +17,7 @@ RUN npm run build
 FROM nginx:alpine
 
 # Install OpenSSL
-RUN apk add --no-cache openssl
+RUN apk add --no-cache openssl curl
 
 # Create SSL directory and generate self-signed certificate
 RUN mkdir -p /etc/nginx/ssl && \
