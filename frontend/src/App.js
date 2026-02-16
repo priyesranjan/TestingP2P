@@ -1,5 +1,5 @@
 import React from 'react';
-import { Ghost } from 'lucide-react';
+import { Ghost, Activity } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import useWebSocket from './hooks/useWebSocket';
 import useWebRTC from './hooks/useWebRTC';
@@ -9,6 +9,7 @@ import { ConnectionControls } from './components/ConnectionControls';
 import { ChatMessages } from './components/ChatMessages';
 import { ChatInput } from './components/ChatInput';
 import { AudioControls } from './components/AudioControls';
+import { CallOverlay } from './components/CallOverlay';
 import { Card } from './components/ui/card';
 import { GlitchText } from './components/ui/GlitchText';
 import { LivingBackground } from './components/ui/LivingBackground';
@@ -69,6 +70,15 @@ function App() {
       {/* Noise overlay */}
       <div className="fixed inset-0 z-10 opacity-[0.05] pointer-events-none noise-texture" />
 
+      {/* Call Overlay */}
+      {isCallActive && (
+        <CallOverlay
+          isMuted={isMuted}
+          onEndCall={endCall}
+          onToggleMute={toggleMute}
+        />
+      )}
+
       {/* Main Content */}
       <div className="relative z-20 h-screen flex flex-col p-4 md:p-8 gap-4">
         {/* Header */}
@@ -101,7 +111,7 @@ function App() {
           {/* Main Chat Area */}
           <main className="lg:col-span-9 flex flex-col gap-4 overflow-hidden" data-testid="main-chat">
             {/* Connection Status Bar */}
-            <Card className="bg-gray-950/40 backdrop-blur-xl border border-white/5 shadow-2xl rounded-2xl p-4">
+            <Card className="bg-gray-950/40 backdrop-blur-xl border border-white/5 shadow-2xl rounded-2xl p-4 transition-all duration-300 hover:border-cyan-500/20">
               <ConnectionControls
                 status={status}
                 onFindRandom={findRandom}
@@ -111,29 +121,39 @@ function App() {
             </Card>
 
             {/* Chat Messages */}
-            <Card className="bg-gray-950/40 backdrop-blur-xl border border-white/5 shadow-2xl rounded-2xl p-6 flex-1 flex flex-col min-h-0">
+            <Card className="bg-gray-950/40 backdrop-blur-xl border border-white/5 shadow-2xl rounded-2xl p-6 flex-1 flex flex-col min-h-0 transition-all duration-300 relative overflow-hidden group">
+              <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-cyan-900/5 pointer-events-none group-hover:opacity-100 transition-opacity opacity-0"></div>
+
               {status === 'connected' ? (
                 <>
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-[var(--accent-green)] shadow-[0_0_8px_rgba(16,185,129,0.8)] animate-pulse"></div>
-                      <span className="text-sm text-gray-400">Chatting with stranger</span>
+                  <div className="flex items-center justify-between mb-4 z-10">
+                    <div className="flex items-center gap-3 bg-gray-900/50 px-4 py-2 rounded-full border border-white/5">
+                      <div className="relative">
+                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)] animate-pulse"></div>
+                        <div className="absolute inset-0 w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping opacity-75"></div>
+                      </div>
+                      <span className="text-xs font-mono tracking-wide text-emerald-400/80 uppercase">Secure Link Established</span>
                     </div>
-                    <AudioControls
-                      isCallActive={isCallActive}
-                      isMuted={isMuted}
-                      isRemoteAudioPlaying={isRemoteAudioPlaying}
-                      callError={callError}
-                      onStartCall={() => startCall(true)}
-                      onEndCall={endCall}
-                      onToggleMute={toggleMute}
-                      disabled={false}
-                    />
+
+                    {!isCallActive && (
+                      <div className="flex items-center gap-2">
+                        <AudioControls
+                          isCallActive={isCallActive}
+                          isMuted={isMuted}
+                          isRemoteAudioPlaying={isRemoteAudioPlaying}
+                          callError={callError}
+                          onStartCall={() => startCall(true)}
+                          onEndCall={endCall}
+                          onToggleMute={toggleMute}
+                          disabled={false}
+                        />
+                      </div>
+                    )}
                   </div>
 
                   <ChatMessages messages={messages} userId={userId} />
 
-                  <div className="mt-4 pt-4 border-t border-white/5">
+                  <div className="mt-4 pt-4 border-t border-white/5 z-10">
                     <ChatInput
                       onSend={sendChatMessage}
                       disabled={status !== 'connected'}
@@ -142,16 +162,19 @@ function App() {
                 </>
               ) : (
                 <div className="flex-1 flex items-center justify-center" data-testid="waiting-state">
-                  <div className="text-center space-y-4">
-                    <Ghost className="h-16 w-16 mx-auto text-[var(--accent-cyan)] opacity-30" />
+                  <div className="text-center space-y-6">
+                    <div className="relative inline-block">
+                      <Ghost className="h-20 w-20 mx-auto text-[var(--accent-cyan)] opacity-20 animate-float" />
+                      <div className="absolute inset-0 blur-2xl bg-cyan-500/10 rounded-full"></div>
+                    </div>
                     <div>
-                      <h3 className="text-xl font-medium text-gray-400 mb-2">
-                        {status === 'searching' ? <GlitchText text="Searching..." /> :
-                          status === 'available' ? 'Ready to connect' :
-                            'Connecting...'}
+                      <h3 className="text-2xl font-bold text-gray-300 mb-2 font-['Space_Grotesk'] tracking-wide">
+                        {status === 'searching' ? <GlitchText text="SCANNING NETWORK..." /> :
+                          status === 'available' ? 'SYSTEM READY' :
+                            'INITIALIZING...'}
                       </h3>
-                      <p className="text-sm text-gray-600">
-                        {status === 'available' && 'Click "Find Random" or select a user from the sidebar'}
+                      <p className="text-sm text-cyan-500/60 font-mono">
+                        {status === 'available' && 'Awaiting Input: Initiate "Find Random" Sequence'}
                       </p>
                     </div>
                   </div>
@@ -163,8 +186,9 @@ function App() {
 
         {/* Connection Status Indicator */}
         {!isConnected && (
-          <div className="fixed top-4 right-4 bg-red-950/80 backdrop-blur-xl border border-[var(--accent-red)]/30 rounded-lg px-4 py-2 text-[var(--accent-red)] text-sm" data-testid="connection-error">
-            Disconnected from server
+          <div className="fixed top-4 right-4 bg-red-950/90 backdrop-blur-xl border border-red-500/50 rounded-lg px-6 py-3 text-red-400 font-mono text-xs shadow-[0_0_20px_rgba(239,68,68,0.2)] animate-slide-in-right z-50 flex items-center gap-3">
+            <Activity className="w-4 h-4 animate-pulse" />
+            <span>CONNECTION SEVERED</span>
           </div>
         )}
       </div>
@@ -177,11 +201,13 @@ function App() {
         theme="dark"
         toastOptions={{
           style: {
-            background: 'rgba(11, 18, 33, 0.9)',
+            background: 'rgba(5, 5, 5, 0.95)',
             backdropFilter: 'blur(24px)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
+            border: '1px solid rgba(34, 211, 238, 0.1)',
             color: '#F9FAFB',
+            fontFamily: 'Space Grotesk, sans-serif',
           },
+          className: 'shadow-[0_0_20px_rgba(0,0,0,0.5)]',
         }}
       />
     </div>
