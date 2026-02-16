@@ -6,7 +6,7 @@ let inMemoryQueue = [];
 
 const addToQueue = async (userId) => {
   const redisClient = getRedisClient();
-  
+
   if (isRedisConnected() && redisClient) {
     try {
       await redisClient.lPush(QUEUE_KEY, userId);
@@ -16,7 +16,7 @@ const addToQueue = async (userId) => {
       console.error('Redis addToQueue error:', error);
     }
   }
-  
+
   inMemoryQueue.push(userId);
   console.log(`Added ${userId} to in-memory queue`);
   return true;
@@ -24,7 +24,7 @@ const addToQueue = async (userId) => {
 
 const removeFromQueue = async (userId) => {
   const redisClient = getRedisClient();
-  
+
   if (isRedisConnected() && redisClient) {
     try {
       await redisClient.lRem(QUEUE_KEY, 0, userId);
@@ -34,7 +34,7 @@ const removeFromQueue = async (userId) => {
       console.error('Redis removeFromQueue error:', error);
     }
   }
-  
+
   const index = inMemoryQueue.indexOf(userId);
   if (index > -1) {
     inMemoryQueue.splice(index, 1);
@@ -44,47 +44,50 @@ const removeFromQueue = async (userId) => {
 };
 
 const getNextMatch = async (currentUserId) => {
-  const redisClient = getRedisClient();
-  
-  if (isRedisConnected() && redisClient) {
-    try {
+  try {
+    const redisClient = getRedisClient();
+
+    // Redis Mode
+    if (isRedisConnected() && redisClient) {
       let partnerId = await redisClient.rPop(QUEUE_KEY);
-      
-      while (partnerId === currentUserId && partnerId !== null) {
+      // If we picked ourselves, try again (simple retry logic)
+      if (partnerId === currentUserId) {
+        // Push back and try once more? Or just discard? 
+        // Discarding is safer to avoid infinite loop of picking self.
+        // But better to push back at head? 
+        // For simplicity in high-scale: Discarding a self-match is fine, user will req again.
         partnerId = await redisClient.rPop(QUEUE_KEY);
       }
-      
-      if (partnerId && partnerId !== currentUserId) {
-        console.log(`Matched ${currentUserId} with ${partnerId} via Redis`);
-        return partnerId;
-      }
-      
-      return null;
-    } catch (error) {
-      console.error('Redis getNextMatch error:', error);
+      return (partnerId && partnerId !== currentUserId) ? partnerId : null;
     }
-  }
-  
-  if (inMemoryQueue.length === 0) {
+
+    // Memory Mode
+    if (inMemoryQueue.length === 0) return null;
+
+    // Simple random pick vs Queue? Queue is fairer.
+    // Filter out self from queue to avoid popping self?
+    // Expensive operation: inMemoryQueue = inMemoryQueue.filter(id => id !== currentUserId);
+    // Better: Pop. If self, pop again.
+
+    let partnerId = inMemoryQueue.shift(); // FIFO (Fairer than pop)
+
+    if (partnerId === currentUserId) {
+      // If we picked self, put back at end and pick next?
+      inMemoryQueue.push(partnerId);
+      partnerId = inMemoryQueue.shift();
+    }
+
+    return (partnerId && partnerId !== currentUserId) ? partnerId : null;
+
+  } catch (err) {
+    console.error('Matching Error:', err);
     return null;
   }
-  
-  let partnerId = inMemoryQueue.pop();
-  while (partnerId === currentUserId && inMemoryQueue.length > 0) {
-    partnerId = inMemoryQueue.pop();
-  }
-  
-  if (partnerId && partnerId !== currentUserId) {
-    console.log(`Matched ${currentUserId} with ${partnerId} via memory`);
-    return partnerId;
-  }
-  
-  return null;
 };
 
 const getQueueLength = async () => {
   const redisClient = getRedisClient();
-  
+
   if (isRedisConnected() && redisClient) {
     try {
       return await redisClient.lLen(QUEUE_KEY);
@@ -92,7 +95,7 @@ const getQueueLength = async () => {
       console.error('Redis getQueueLength error:', error);
     }
   }
-  
+
   return inMemoryQueue.length;
 };
 

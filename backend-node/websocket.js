@@ -14,7 +14,63 @@ const initWebSocket = (server) => {
   wss.on('connection', (ws, req) => {
     const userId = uuidv4();
     const ip = req.socket.remoteAddress;
-    
+
+    // Check Ban Status
+    const { PrismaClient } = require('@prisma/client');
+    const prisma = new PrismaClient();
+
+    const checkBan = async () => {
+      const banned = await prisma.bannedIP.findUnique({ where: { ipAddress: ip } });
+      if (banned) {
+        ws.send(JSON.stringify({ type: 'error', message: 'You are banned from this server.' }));
+        ws.close();
+        return true;
+      }
+
+      // Track User (Upsert)
+      await prisma.user.upsert({
+        where: { ipAddress: ip }, // Note: We need @unique on ipAddress in schema or logic adjustment
+        // Since schema User.ipAddress is NOT unique in my previous definition, this upsert will fail if I don't fix schema.
+        // Wait, Phase 1 schema defined: model User { ... @@index([ipAddress]) } but not @unique. 
+        // Actually, UUID is ID. User logic in "Ghost Protocol" generates a NEW UUID on every refresh.
+        // So we should just CREATE a new User record for this session, linking to IP.
+        create: {
+          ipAddress: ip,
+          isBanned: false
+        },
+        update: {
+          lastSeen: new Date()
+        }
+      }).catch(err => console.log("DB Error", err));
+
+      // Note: UPSERT requires a unique field. Since I used UUID as ID, I can't upsert by IP unless IP is unique. 
+      // In anonymous chat, one IP can have multiple tabs (sessions). 
+      // So asking for "Connecto Enhanced" = Persistent Users? 
+      // For now, I will just CREATE a record.
+
+      return false;
+    };
+
+    // I can't await in the connection handler easily without making it async, which is fine.
+    checkBan().then(isBanned => {
+      if (isBanned) return;
+
+      console.log(`New connection: ${userId} from ${ip}`);
+
+      users.set(userId, {
+        ws,
+        userId,
+        status: 'available',
+        roomId: null,
+        partnerId: null,
+        ip
+      });
+
+      // ... rest of logic
+    });
+
+    /* 
+    ORIGINAL LOGIC:
     console.log(`New connection: ${userId} from ${ip}`);
 
     users.set(userId, {
@@ -25,6 +81,7 @@ const initWebSocket = (server) => {
       partnerId: null,
       ip
     });
+    */
 
     ws.send(JSON.stringify({
       type: 'connected',

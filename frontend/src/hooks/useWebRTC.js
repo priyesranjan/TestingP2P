@@ -1,12 +1,19 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 
-const ICE_SERVERS = [
-  { urls: 'stun:stun.l.google.com:19302' },
-  { urls: 'stun:stun1.l.google.com:19302' },
-  { urls: 'stun:stun2.l.google.com:19302' },
-  { urls: 'stun:stun3.l.google.com:19302' },
-  { urls: 'stun:stun4.l.google.com:19302' },
-];
+const ICE_SERVERS = process.env.REACT_APP_ICE_SERVERS
+  ? JSON.parse(process.env.REACT_APP_ICE_SERVERS)
+  : [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' }
+  ];
+
+const AUDIO_CONSTRAINTS = {
+  echoCancellation: true,
+  noiseSuppression: true,
+  autoGainControl: true,
+  sampleRate: 48000,
+  channelCount: 1 // Mono uses less bandwidth
+};
 
 const useWebRTC = (partnerId, sendSignal, wsRef) => {
   const [isCallActive, setIsCallActive] = useState(false);
@@ -90,7 +97,9 @@ const useWebRTC = (partnerId, sendSignal, wsRef) => {
 
   const startCall = useCallback(async (isInitiator = false) => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: AUDIO_CONSTRAINTS
+      });
       localStreamRef.current = stream;
 
       const pc = createPeerConnection();

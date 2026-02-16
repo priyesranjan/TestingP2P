@@ -9,16 +9,20 @@ const useWebSocket = () => {
   const [roomId, setRoomId] = useState(null);
   const [status, setStatus] = useState('disconnected');
   const [error, setError] = useState(null);
-  
+
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
   const reconnectAttemptsRef = useRef(0);
   const maxReconnectAttempts = 5;
 
   const getWebSocketUrl = () => {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = window.location.host;
-    return `${protocol}//${host}/api/ws`;
+    // For Mobile App (Capacitor) or Production
+    return 'wss://call.appdost.com/api/ws';
+
+    // Fallback for local dev (Commented out for Production Build)
+    // const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    // const host = window.location.host;
+    // return `${protocol}//${host}/api/ws`;
   };
 
   const connect = useCallback(() => {
@@ -51,7 +55,7 @@ const useWebSocket = () => {
         console.log('WebSocket disconnected');
         setIsConnected(false);
         setStatus('disconnected');
-        
+
         if (reconnectAttemptsRef.current < maxReconnectAttempts) {
           const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 10000);
           console.log(`Reconnecting in ${delay}ms...`);
