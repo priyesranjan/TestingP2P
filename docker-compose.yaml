@@ -23,7 +23,13 @@ services:
     restart: always
     ports:
       - "3000:80"
-      - "3443:443"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend-r.rule=Host(`call.appdost.com`)"
+      - "traefik.http.routers.frontend-r.entrypoints=websecure"
+      - "traefik.http.routers.frontend-r.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.frontend-r.service=frontend-svc"
+      - "traefik.http.services.frontend-svc.loadbalancer.server.port=80"
     depends_on:
       backend:
         condition: service_healthy
