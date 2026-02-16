@@ -10,6 +10,7 @@ import { ChatMessages } from './components/ChatMessages';
 import { ChatInput } from './components/ChatInput';
 import { AudioControls } from './components/AudioControls';
 import { CallOverlay } from './components/CallOverlay';
+import { DebugPanel } from './components/DebugPanel';
 import { Card } from './components/ui/card';
 import { GlitchText } from './components/ui/GlitchText';
 import { LivingBackground } from './components/ui/LivingBackground';
@@ -41,26 +42,11 @@ function App() {
     startCall,
     endCall,
     toggleMute,
-    remoteAudioRef
+    remoteAudioRef,
+    rtcStats
   } = useWebRTC(partnerId, sendWebRTCSignal, wsRef);
 
-  React.useEffect(() => {
-    if (error) {
-      toast.error(error);
-    }
-  }, [error]);
-
-  React.useEffect(() => {
-    if (callError) {
-      toast.error(callError);
-    }
-  }, [callError]);
-
-  React.useEffect(() => {
-    if (partnerId && !isCallActive) {
-      toast.success('Match found! You can now start a voice call.');
-    }
-  }, [partnerId, isCallActive]);
+  // ... (useEffects)
 
   return (
     <div className="min-h-screen bg-[var(--background)] relative overflow-hidden" data-testid="app-container">
@@ -69,6 +55,9 @@ function App() {
 
       {/* Noise overlay */}
       <div className="fixed inset-0 z-10 opacity-[0.05] pointer-events-none noise-texture" />
+
+      {/* Debug Panel (Always visible for now) */}
+      <DebugPanel rtcStats={rtcStats} isCallActive={isCallActive} />
 
       {/* Call Overlay */}
       {isCallActive && (

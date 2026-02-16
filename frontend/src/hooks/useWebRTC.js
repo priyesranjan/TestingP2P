@@ -3,6 +3,9 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 const ICE_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'stun:stun2.l.google.com:19302' },
+  { urls: 'stun:stun3.l.google.com:19302' },
+  { urls: 'stun:stun4.l.google.com:19302' },
 ];
 
 const useWebRTC = (partnerId, sendSignal, wsRef) => {
@@ -10,11 +13,22 @@ const useWebRTC = (partnerId, sendSignal, wsRef) => {
   const [isMuted, setIsMuted] = useState(false);
   const [isRemoteAudioPlaying, setIsRemoteAudioPlaying] = useState(false);
   const [callError, setCallError] = useState(null);
-  
+
   const peerConnectionRef = useRef(null);
   const localStreamRef = useRef(null);
   const remoteAudioRef = useRef(null);
   const pendingCandidatesRef = useRef([]);
+
+  const [rtcStats, setRtcStats] = useState({
+    connectionState: 'new',
+    iceConnectionState: 'new',
+    iceCandidateCount: 0,
+    signalingState: 'stable'
+  });
+
+  const updateStats = useCallback((updates) => {
+    setRtcStats(prev => ({ ...prev, ...updates }));
+  }, []);
 
   const createPeerConnection = useCallback(() => {
     try {
@@ -22,6 +36,7 @@ const useWebRTC = (partnerId, sendSignal, wsRef) => {
 
       pc.onicecandidate = (event) => {
         if (event.candidate) {
+          setRtcStats(prev => ({ ...prev, iceCandidateCount: prev.iceCandidateCount + 1 }));
           sendSignal({
             type: 'ice-candidate',
             candidate: event.candidate
@@ -39,10 +54,29 @@ const useWebRTC = (partnerId, sendSignal, wsRef) => {
 
       pc.onconnectionstatechange = () => {
         console.log('Connection state:', pc.connectionState);
+        updateStats({ connectionState: pc.connectionState });
+        if (pc.connectionState === 'connected') {
+          // toast.success('Voice connection established!'); // Optional: reduce noise
+        }
         if (pc.connectionState === 'failed') {
-          setCallError('Connection failed. Please try again.');
+          setCallError('Connection failed (Firewall/Network issue).');
           endCall();
         }
+        if (pc.connectionState === 'disconnected') {
+          setCallError('Voice connection lost.');
+        }
+      };
+
+      pc.oniceconnectionstatechange = () => {
+        console.log('ICE State:', pc.iceConnectionState);
+        updateStats({ iceConnectionState: pc.iceConnectionState });
+        if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
+          setCallError(`Network error: ${pc.iceConnectionState}`);
+        }
+      };
+
+      pc.onsignalingstatechange = () => {
+        updateStats({ signalingState: pc.signalingState });
       };
 
       peerConnectionRef.current = pc;
@@ -52,7 +86,7 @@ const useWebRTC = (partnerId, sendSignal, wsRef) => {
       setCallError('Failed to initialize call');
       return null;
     }
-  }, [sendSignal]);
+  }, [sendSignal, updateStats]);
 
   const startCall = useCallback(async (isInitiator = false) => {
     try {
@@ -108,6 +142,12 @@ const useWebRTC = (partnerId, sendSignal, wsRef) => {
     setIsRemoteAudioPlaying(false);
     setIsMuted(false);
     pendingCandidatesRef.current = [];
+    setRtcStats({
+      connectionState: 'closed',
+      iceConnectionState: 'closed',
+      iceCandidateCount: 0,
+      signalingState: 'stable'
+    });
   }, []);
 
   const toggleMute = useCallback(() => {
@@ -128,7 +168,7 @@ const useWebRTC = (partnerId, sendSignal, wsRef) => {
         if (!pc) {
           await startCall(false);
         }
-        
+
         const currentPc = peerConnectionRef.current;
         if (currentPc) {
           await currentPc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
@@ -147,7 +187,7 @@ const useWebRTC = (partnerId, sendSignal, wsRef) => {
       } else if (signal.type === 'answer') {
         if (pc && pc.signalingState === 'have-local-offer') {
           await pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
-          
+
           pendingCandidatesRef.current.forEach(candidate => {
             pc.addIceCandidate(new RTCIceCandidate(candidate));
           });
@@ -203,7 +243,8 @@ const useWebRTC = (partnerId, sendSignal, wsRef) => {
     startCall,
     endCall,
     toggleMute,
-    remoteAudioRef
+    remoteAudioRef,
+    rtcStats
   };
 };
 
