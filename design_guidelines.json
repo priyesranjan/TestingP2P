@@ -1,0 +1,151 @@
+{
+  "identity": {
+    "name": "Ghost Protocol",
+    "metaphor": "Whispers in the Void",
+    "description": "A high-fidelity, anonymous communication terminal for the shadows.",
+    "emotional_tone": ["Mysterious", "Ephemeral", "Cybernetic", "Clean", "Secure"],
+    "visual_style": "Dark Glassmorphism meets Cyberpunk Minimalist"
+  },
+  "typography": {
+    "font_family": {
+      "heading": "Space Grotesk, sans-serif",
+      "body": "Inter, sans-serif",
+      "mono": "JetBrains Mono, monospace"
+    },
+    "scale": {
+      "h1": "text-5xl md:text-7xl font-bold tracking-tighter leading-none",
+      "h2": "text-3xl md:text-4xl font-semibold tracking-tight",
+      "h3": "text-xl md:text-2xl font-medium tracking-normal",
+      "body_lg": "text-lg leading-relaxed",
+      "body": "text-base leading-relaxed text-gray-300",
+      "caption": "text-xs font-mono tracking-wider text-gray-500 uppercase",
+      "uuid": "font-mono text-sm tracking-widest text-cyan-400/80"
+    }
+  },
+  "colors": {
+    "palette": {
+      "background": {
+        "main": "#030712",
+        "secondary": "#0B1221",
+        "glass": "rgba(11, 18, 33, 0.6)"
+      },
+      "text": {
+        "primary": "#F9FAFB",
+        "secondary": "#9CA3AF",
+        "muted": "#4B5563",
+        "terminal": "#22d3ee"
+      },
+      "accents": {
+        "primary": "#06b6d4",
+        "primary_glow": "0 0 20px rgba(6, 182, 212, 0.5)",
+        "success": "#10b981",
+        "success_glow": "0 0 15px rgba(16, 185, 129, 0.4)",
+        "destructive": "#ef4444",
+        "destructive_glow": "0 0 15px rgba(239, 68, 68, 0.4)",
+        "warning": "#f59e0b"
+      }
+    },
+    "gradients": {
+      "glass_surface": "linear-gradient(145deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%)",
+      "neon_border": "linear-gradient(90deg, transparent, rgba(6, 182, 212, 0.3), transparent)"
+    }
+  },
+  "layout_strategy": {
+    "type": "The Cockpit",
+    "structure": "Fixed-height viewport (100dvh) with distinct control and display zones.",
+    "grid_system": "Mobile-first flex-col, shifting to Grid (12 cols) on Desktop: 3 (Sidebar) - 9 (Main).",
+    "spacing": {
+      "container_padding": "p-4 md:p-8",
+      "gap_standard": "gap-4",
+      "gap_relaxed": "gap-8"
+    }
+  },
+  "components": {
+    "GlassCard": {
+      "path": "src/components/ui/card.jsx",
+      "style": "bg-gray-950/40 backdrop-blur-xl border border-white/5 shadow-2xl rounded-2xl",
+      "usage": "Main container for chat, settings, and lists."
+    },
+    "NeonButton": {
+      "path": "src/components/ui/button.jsx",
+      "variants": {
+        "primary": "bg-cyan-950/50 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-900/50 hover:border-cyan-400 hover:shadow-[0_0_15px_rgba(6,182,212,0.3)] transition-all duration-300",
+        "destructive": "bg-red-950/50 border border-red-500/30 text-red-400 hover:bg-red-900/50 hover:border-red-400 hover:shadow-[0_0_15px_rgba(239,68,68,0.3)] transition-all duration-300",
+        "ghost": "hover:bg-white/5 text-gray-400 hover:text-white transition-colors"
+      }
+    },
+    "TerminalInput": {
+      "path": "src/components/ui/input.jsx",
+      "style": "bg-black/20 border-white/10 focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/20 font-mono text-sm placeholder:text-gray-700 rounded-lg h-12"
+    },
+    "StatusIndicator": {
+      "styles": {
+        "online": "w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]",
+        "offline": "w-2 h-2 rounded-full bg-gray-700",
+        "busy": "w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]"
+      }
+    }
+  },
+  "visual_enhancers": {
+    "background_texture": {
+      "url": "https://images.unsplash.com/photo-1767477665602-ab4e96be7701?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMjd8MHwxfHNlYXJjaHwxfHxhYnN0cmFjdCUyMGN5YmVyJTIwZGlnaXRhbCUyMG5vaXNlJTIwdGV4dHVyZSUyMGRhcmt8ZW58MHx8fHwxNzcwODM0NDE4fDA&ixlib=rb-4.1.0&q=85",
+      "style": "fixed inset-0 z-[-1] opacity-20 mix-blend-screen bg-cover bg-center pointer-events-none"
+    },
+    "glass_blur": "backdrop-blur-[24px]",
+    "noise_overlay": "opacity-[0.03] pointer-events-none fixed inset-0 z-50 bg-[url('https://grainy-gradients.vercel.app/noise.svg')]"
+  },
+  "motion": {
+    "chat_bubble_entrance": "animate-in slide-in-from-bottom-2 fade-in duration-300 ease-out",
+    "page_transition": "animate-in fade-in zoom-in-95 duration-500 ease-out",
+    "glitch_effect": "hover:animate-pulse cursor-pointer"
+  },
+  "audio_ui": {
+    "visualizer": "Flex row gap-1 items-end h-8",
+    "bar": "w-1 bg-cyan-500 rounded-full animate-pulse",
+    "mute_btn": "rounded-full p-3 bg-white/5 hover:bg-white/10 border border-white/5 transition-all"
+  },
+  "accessibility": {
+    "contrast_check": "Ensure text-gray-300 on bg-gray-950 meets 4.5:1. Increase text brightness if needed.",
+    "reduced_motion": "Disable pulse animations and slide-ins when prefers-reduced-motion is true."
+  },
+  "image_urls": {
+    "backgrounds": [
+      {
+        "url": "https://images.unsplash.com/photo-1767477665602-ab4e96be7701?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMjd8MHwxfHNlYXJjaHwxfHxhYnN0cmFjdCUyMGN5YmVyJTIwZGlnaXRhbCUyMG5vaXNlJTIwdGV4dHVyZSUyMGRhcmt8ZW58MHx8fHwxNzcwODM0NDE4fDA&ixlib=rb-4.1.0&q=85",
+        "description": "Abstract blue and black digital art pattern - Main App Background"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1765445666518-0140e26ae920?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMjd8MHwxfHNlYXJjaHw0fHxhYnN0cmFjdCUyMGN5YmVyJTIwZGlnaXRhbCUyMG5vaXNlJTIwdGV4dHVyZSUyMGRhcmt8ZW58MHx8fHwxNzcwODM0NDE4fDA&ixlib=rb-4.1.0&q=85",
+        "description": "Abstract glitch art - Error States / 404"
+      }
+    ]
+  },
+  "instructions_to_main_agent": [
+    "Install 'lucide-react' for icons immediately.",
+    "Setup 'JetBrains Mono' and 'Space Grotesk' via Google Fonts in index.html.",
+    "Create a 'Layout' component that wraps the app with the background image and noise overlay.",
+    "Use 'sonner' for all notifications (connection status, errors).",
+    "For the Chat UI: Messages must float. Use 'flex-col-reverse' for the chat container to handle scrolling naturally.",
+    "For Audio: Use simple CSS keyframes for the 'talking' animation on the avatar/visualizer.",
+    "STRICT: No white backgrounds. All surfaces must be dark gray/black with low opacity.",
+    "UUID Display: Show the user's UUID in the top left, truncated (e.g., 'usr_...A8F2') with a copy-to-clipboard function."
+  ],
+  "UNIVERSAL_GUIDELINES": [
+    "You tend to converge toward generic, 'on distribution' outputs. Avoid this.",
+    "Dark colors look good when used independently without gradients. DO NOT use dark colors as gradients.",
+    "Don't make generic centered layouts, simplistic gradients, and uniform styling.",
+    "Create depth through layered design elements with z-index hierarchy.",
+    "Use glass-morphism effects with backdrop filters (12-24px blur).",
+    "You MUST NOT apply universal transition. Eg: 'transition: all'. This results in breaking transforms.",
+    "You MUST NOT center align the app container. This disrupts the human natural reading flow of text.",
+    "Always use modern button styles like pill-shaped, or sharp button with interaction animations.",
+    "NEVER: use AI assistant Emoji characters like 🤖🧠 etc for icons.",
+    "Every interaction needs micro-animations - hover states, transitions, entrance animations.",
+    "Use 2-3x more spacing than feels comfortable.",
+    "Subtle grain textures, noise overlays, custom cursors: separates good from extraordinary.",
+    "Missing categories = main agent will use placeholder text which is FORBIDDEN.",
+    "Components MUST use named exports (export const ComponentName = ...).",
+    "Pages MUST use default exports (export default function PageName() {...}).",
+    "Use 'sonner' for toasts."
+  ]
+}
