@@ -80,7 +80,17 @@ function ChatPage() {
                         </div>
                     </div>
 
-                    {userId && <UserIdDisplay userId={userId} />}
+                    {userId && (
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={() => window.location.href = '/dashboard'}
+                                className="bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/20 rounded-lg px-4 py-2 text-sm font-bold transition-all"
+                            >
+                                My Dashboard
+                            </button>
+                            <UserIdDisplay userId={userId} />
+                        </div>
+                    )}
                 </header>
 
                 {/* Main Grid */}

@@ -1,14 +1,454 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
+  url      = "postgresql://postgres:hGcIz9HHsj6bwkTbm1NLfzGYMV09wJB5U33TynV3yHdBSCHGuPEST28h9jCk7OiX@91.108.111.194:5885/postgres"
+}
+
+// ════════════════════════════════════════════
+// 1. USER — Core user model
+// ════════════════════════════════════════════
+model User {
+  id          String    @id @default(uuid())
+  phone       String?   @unique
+  name        String?
+  email       String?
+  avatarUrl   String?
+  role        String    @default("user") // user | listener | expert | admin
+  balance     Decimal   @default(0.00) @db.Decimal
+  referralCode String?  @unique
+  isOnline    Boolean   @default(false)
+  isVerified  Boolean   @default(false)
+  isBanned    Boolean   @default(false)
+  banReason   String?
+  bannedAt    DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  expertProfile     ExpertProfile?
+  expertApplication ExpertApplication?
+  deleteRequest     DeleteRequest?
+  callsAsCaller     CallSession[]      @relation("CallerSessions")
+  callsAsExpert     CallSession[]      @relation("ExpertSessions")
+  sentMessages      Message[]          @relation("SentMessages")
+  reviewsGiven      Review[]           @relation("ReviewsGiven")
+  reviewsReceived   Review[]           @relation("ReviewsReceived")
+  transactions      Transaction[]
+  walletTxns        WalletTransaction[]
+  reportsMade       Report[]           @relation("ReportsMade")
+  reportsReceived   Report[]           @relation("ReportsReceived")
+  notifications     Notification[]
+  sessions          UserSession[]
+  auditLogs         AuditLog[]
+  referralsMade     Referral[]         @relation("ReferralsMade")
+  referralReceived  Referral?          @relation("ReferralsReceived")
+
+  @@map("users")
+}
+
+// ════════════════════════════════════════════
+// 2. EXPERT APPLICATION — Full KYC Onboarding
+// ════════════════════════════════════════════
+model ExpertApplication {
+  id              String    @id @default(uuid())
+  userId          String    @unique
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Personal Info
+  realName        String
+  email           String
+  phoneNumber     String
+  dateOfBirth     DateTime?
+  gender          String?       // male | female | other
+  city            String?
+  state           String?
+
+  // Financial KYC
+  upiId           String        // e.g. name@paytm
+  bankName        String
+  bankAccountNo   String
+  bankIfsc        String
+  panNumber       String?       // Required for >₹50K payouts
+
+  // Expertise
+  expertise       String        // Category: Mental Health, Career, etc.
+  subExpertise    String?
+  experience      String        // Years + description
+  languages       String[]      // ["Hindi", "English", "Tamil"]
+
+  // Media Uploads (stored on R2)
+  voiceIntroUrl   String        // 2-min voice recording
+  idProofUrl      String        // Aadhaar/PAN photo
+  selfieUrl       String?       // Live selfie for verification
+  profilePhotoUrl String?
+
+  // Verification
+  status          String    @default("pending") // pending | under_review | approved | rejected
+  rejectionReason String?
+  reviewedBy      String?
+  reviewedAt      DateTime?
+  reviewNotes     String?
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@map("expert_applications")
+}
+
+// ════════════════════════════════════════════
+// 3. EXPERT PROFILE — Active Expert (after approval)
+// ════════════════════════════════════════════
+model ExpertProfile {
+  id                  String    @id @default(uuid())
+  userId              String    @unique
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Public Profile
+  displayName         String
+  bio                 String?
+  specialization      String
+  subSpecialization   String?
+  languages           String[]
+  profilePhotoUrl     String?
+  voiceIntroUrl       String
+
+  // Rates
+  ratePerMinAudio     Decimal   @default(5.00) @db.Decimal
+  ratePerMinVideo     Decimal   @default(10.00) @db.Decimal
+
+  // Auto-calculated Stats
+  totalCalls          Int       @default(0)
+  totalMinutes        Int       @default(0)
+  totalEarnings       Decimal   @default(0.00) @db.Decimal
+  avgRating           Decimal   @default(0.00) @db.Decimal
+  totalReviews        Int       @default(0)
+  completionRate      Decimal   @default(100.00) @db.Decimal  // % calls completed
+  avgResponseTime     Int       @default(0)                    // seconds to answer
+
+  // Availability
+  isAvailable         Boolean   @default(false)
+  schedule            Json?     // {"mon":["09:00-12:00","14:00-18:00"]}
+  maxConcurrent       Int       @default(1)
+
+  // Gamification
+  tier                String    @default("Bronze") // Bronze | Silver | Gold | Platinum
+  badges              String[]  // ["100_calls", "top_rated", "early_adopter"]
+  
+  // Financial
+  upiId               String
+  bankName            String
+  bankAccountNo       String
+  bankIfsc            String
+  pendingPayout       Decimal   @default(0.00) @db.Decimal
+  totalPaidOut        Decimal   @default(0.00) @db.Decimal
+
+  // Status
+  isActive            Boolean   @default(true)
+  isFeatured          Boolean   @default(false)
+  suspendedAt         DateTime?
+  suspendReason       String?
+
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  // Relations
+  timeSlots           ExpertTimeSlot[]
+  payouts             Payout[]
+  callSessions        CallSession[]
+
+  @@map("expert_profiles")
+}
+
+// ════════════════════════════════════════════
+// 4. EXPERT TIME SLOT — Schedule Management
+// ════════════════════════════════════════════
+model ExpertTimeSlot {
+  id          String        @id @default(uuid())
+  expertId    String
+  expert      ExpertProfile @relation(fields: [expertId], references: [id], onDelete: Cascade)
+  dayOfWeek   Int           // 0=Sun, 1=Mon, ..., 6=Sat
+  startTime   String        // "09:00"
+  endTime     String        // "12:00"
+  isActive    Boolean       @default(true)
+
+  @@unique([expertId, dayOfWeek, startTime])
+  @@map("expert_time_slots")
+}
+
+// ════════════════════════════════════════════
+// 5. CALL SESSION — Detailed Call Tracking
+// ════════════════════════════════════════════
+model CallSession {
+  id              String        @id @default(uuid())
+  callerId        String
+  caller          User          @relation("CallerSessions", fields: [callerId], references: [id])
+  expertId        String
+  expert          User          @relation("ExpertSessions", fields: [expertId], references: [id])
+  expertProfileId String
+  expertProfile   ExpertProfile @relation(fields: [expertProfileId], references: [id])
+
+  callType        String        // "audio" | "video"
+  status          String        @default("initiated")
+  // initiated → ringing → connected → ended | missed | rejected | failed
+
+  // Timing
+  initiatedAt     DateTime      @default(now())
+  answeredAt      DateTime?
+  endedAt         DateTime?
+  durationSeconds Int           @default(0)
+  billableSeconds Int           @default(0)  // excludes grace period
+
+  // Billing
+  ratePerMin      Decimal       @db.Decimal
+  totalCost       Decimal       @default(0.00) @db.Decimal
+  expertEarning   Decimal       @default(0.00) @db.Decimal  // 80%
+  platformFee     Decimal       @default(0.00) @db.Decimal  // 20%
+
+  // Quality
+  callQuality     String?       // excellent | good | poor | dropped
+  endReason       String?       // user_hangup | expert_hangup | timeout | network_error
+  recordingUrl    String?
+
+  // Feedback
+  userRating      Int?          // 1-5
+  userFeedback    String?
+  expertNotes     String?
+
+  createdAt       DateTime      @default(now())
+
+  // Relations
+  messages        Message[]
+  review          Review?
+
+  @@index([expertId, createdAt(sort: Desc)])
+  @@index([callerId, createdAt(sort: Desc)])
+  @@map("call_sessions")
+}
+
+// ════════════════════════════════════════════
+// 6. MESSAGE — Chat during calls
+// ════════════════════════════════════════════
+model Message {
+  id        String      @id @default(uuid())
+  callId    String
+  call      CallSession @relation(fields: [callId], references: [id], onDelete: Cascade)
+  senderId  String
+  sender    User        @relation("SentMessages", fields: [senderId], references: [id])
+  type      String      @default("text") // text | image | audio | system
+  content   String?
+  mediaUrl  String?
+  createdAt DateTime    @default(now())
+
+  @@map("messages")
+}
+
+// ════════════════════════════════════════════
+// 7. REVIEW — Post-call ratings
+// ════════════════════════════════════════════
+model Review {
+  id         String      @id @default(uuid())
+  callId     String      @unique
+  call       CallSession @relation(fields: [callId], references: [id])
+  reviewerId String
+  reviewer   User        @relation("ReviewsGiven", fields: [reviewerId], references: [id])
+  expertId   String
+  expert     User        @relation("ReviewsReceived", fields: [expertId], references: [id])
+  rating     Int         // 1-5
+  comment    String?
+  tags       String[]    // ["helpful", "patient", "knowledgeable"]
+  isPublic   Boolean     @default(true)
+  createdAt  DateTime    @default(now())
+
+  @@map("reviews")
+}
+
+// ════════════════════════════════════════════
+// 8. TRANSACTION — Razorpay payment records
+// ════════════════════════════════════════════
+model Transaction {
+  id                String    @id @default(uuid())
+  userId            String
+  user              User      @relation(fields: [userId], references: [id])
+  type              String    // recharge | refund
+  amount            Decimal   @db.Decimal
+  razorpayOrderId   String?
+  razorpayPaymentId String?
+  razorpaySignature String?
+  status            String    @default("pending") // pending | completed | failed | refunded
+  metadata          Json?
+  createdAt         DateTime  @default(now())
+
+  @@map("transactions")
+}
+
+// ════════════════════════════════════════════
+// 9. WALLET TRANSACTION — Double-entry ledger
+// ════════════════════════════════════════════
+model WalletTransaction {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+  type          String   // recharge | call_debit | refund | bonus | expert_credit | payout_debit
+  amount        Decimal  @db.Decimal
+  balanceBefore Decimal  @db.Decimal
+  balanceAfter  Decimal  @db.Decimal
+  referenceType String?  // call_session | transaction | payout | referral | badge_bonus
+  referenceId   String?
+  description   String
+  createdAt     DateTime @default(now())
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("wallet_transactions")
+}
+
+// ════════════════════════════════════════════
+// 10. PAYOUT — Expert earnings payout
+// ════════════════════════════════════════════
+model Payout {
+  id            String        @id @default(uuid())
+  expertId      String
+  expert        ExpertProfile @relation(fields: [expertId], references: [id])
+  amount        Decimal       @db.Decimal
+  upiId         String
+  bankName      String?
+  status        String        @default("requested") // requested | processing | completed | failed | rejected
+  transactionRef String?
+  periodStart   DateTime?
+  periodEnd     DateTime?
+  callCount     Int?
+  totalMinutes  Int?
+  processedAt   DateTime?
+  processedBy   String?
+  failureReason String?
+  createdAt     DateTime      @default(now())
+
+  @@index([status])
+  @@map("payouts")
+}
+
+// ════════════════════════════════════════════
+// 11. REPORT — User safety reports
+// ════════════════════════════════════════════
+model Report {
+  id          String    @id @default(uuid())
+  reporterId  String
+  reporter    User      @relation("ReportsMade", fields: [reporterId], references: [id])
+  reportedId  String
+  reported    User      @relation("ReportsReceived", fields: [reportedId], references: [id])
+  reason      String
+  category    String?   // harassment | fraud | spam | inappropriate | other
+  evidence    String?   // Screenshot URL
+  status      String    @default("pending") // pending | reviewing | resolved | dismissed
+  resolution  String?
+  resolvedBy  String?
+  resolvedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@map("reports")
+}
+
+// ════════════════════════════════════════════
+// 12. DELETE REQUEST — Account deletion
+// ════════════════════════════════════════════
+model DeleteRequest {
+  id          String    @id @default(uuid())
+  userId      String    @unique
+  user        User      @relation(fields: [userId], references: [id])
+  reason      String?
+  status      String    @default("pending") // pending | approved | rejected
+  processedBy String?
+  processedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@map("delete_requests")
+}
+
+// ════════════════════════════════════════════
+// 13. NOTIFICATION — Push + In-app
+// ════════════════════════════════════════════
+model Notification {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  body      String
+  type      String    // call_missed | payout_complete | app_approved | app_rejected | bonus | system
+  data      Json?     // Deep link data
+  isRead    Boolean   @default(false)
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+// ════════════════════════════════════════════
+// 14. USER SESSION — Device tracking
+// ════════════════════════════════════════════
+model UserSession {
+  id           String    @id @default(uuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceType   String    // android | ios | web
+  deviceModel  String?
+  appVersion   String?
+  ipAddress    String?
+  fcmToken     String?   // Firebase push token
+  isActive     Boolean   @default(true)
+  lastActiveAt DateTime  @default(now())
+  createdAt    DateTime  @default(now())
+
+  @@map("user_sessions")
+}
+
+// ════════════════════════════════════════════
+// 15. AUDIT LOG — Admin action tracking
+// ════════════════════════════════════════════
+model AuditLog {
+  id          String    @id @default(uuid())
+  adminId     String
+  admin       User      @relation(fields: [adminId], references: [id])
+  action      String    // approve_expert | reject_expert | ban_user | unban_user | process_payout
+  targetType  String    // user | expert | application | report | payout
+  targetId    String
+  details     Json?     // Before/after data
+  ipAddress   String?
+  createdAt   DateTime  @default(now())
+
+  @@index([createdAt(sort: Desc)])
+  @@map("audit_logs")
+}
+
+// ════════════════════════════════════════════
+// 16. REFERRAL — Referral tracking
+// ════════════════════════════════════════════
+model Referral {
+  id          String    @id @default(uuid())
+  referrerId  String
+  referrer    User      @relation("ReferralsMade", fields: [referrerId], references: [id])
+  referredId  String    @unique
+  referred    User      @relation("ReferralsReceived", fields: [referredId], references: [id])
+  code        String
+  bonusGiven  Boolean   @default(false)
+  bonusAmount Decimal   @default(0) @db.Decimal
+  createdAt   DateTime  @default(now())
+
+  @@map("referrals")
+}
+
+// ════════════════════════════════════════════
+// 17. APP CONFIG — Feature flags & settings
+// ════════════════════════════════════════════
+model AppConfig {
+  id          String    @id @default(uuid())
+  key         String    @unique // expert_commission_pct, min_recharge, max_call_duration, etc.
+  value       String
+  description String?
+  updatedBy   String?
+  updatedAt   DateTime  @updatedAt
+
+  @@map("app_config")
 }
